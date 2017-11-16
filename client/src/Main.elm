@@ -1,69 +1,64 @@
 module Main exposing (..)
 
-import Html exposing (Html, text, div, h1, img, button, input, label, textarea)
-import Html.Attributes exposing (src, value)
+import Html exposing (Html, button, div, span, table, tbody, td, text, th, thead, tr)
+import Html.Attributes exposing (class, src, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 
 
-(=>) : a -> b -> ( a, b )
-(=>) =
-    (,)
-
-
 apiUrl : String
 apiUrl =
-    "http://localhost:8000/message/"
+    "http://alpha.rogalik.tatrix.org/translate-them-all/api/documents"
 
 
 decodePost : Decode.Decoder String
 decodePost =
-    Decode.at [ "contents" ] Decode.string
+    Decode.at [ "content" ] Decode.string
 
 
-makeNewPost : Int -> String -> Cmd Msg
-makeNewPost id contents =
+getDocuments : Cmd Msg
+getDocuments =
     let
         url =
-            apiUrl ++ (toString id)
-
-        body =
-            Http.jsonBody <| Encode.object [ "contents" => Encode.string contents ]
-
-        request =
-            Http.post url body (Decode.succeed contents)
-    in
-        Http.send NewPost request
-
-
-getPost : Int -> Cmd Msg
-getPost id =
-    let
-        url =
-            apiUrl ++ (toString id)
+            apiUrl
 
         request =
             Http.get url decodePost
     in
-        Http.send NewPost request
+    Http.send GetDocuments request
 
 
 
 ---- MODEL ----
 
 
+type alias Translation =
+    { x : Int
+    , y : Int
+    }
+
+
+type alias Document =
+    { description : String
+    , file : String
+    , lines : Int
+    , translations : List Translation
+    }
+
+
 type alias Model =
-    { id : Int
-    , contents : String
+    { content : List Document
     , error : Maybe String
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { id = 0, contents = "", error = Nothing }, Cmd.none )
+    ( { content = [], error = Nothing }
+    , getDocuments
+    )
 
 
 
@@ -71,39 +66,23 @@ init =
 
 
 type Msg
-    = MakePost
-    | GetPost
-    | NewPost (Result Http.Error String)
-    | SetId String
-    | SetContents String
+    = GetDocuments (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GetPost ->
-            ( model, getPost model.id )
-
-        MakePost ->
-            ( model, makeNewPost model.id model.contents )
-
-        NewPost result ->
+        GetDocuments result ->
             let
                 newModel =
                     case result of
-                        Ok contents ->
-                            { model | contents = contents, error = Nothing }
+                        Ok content ->
+                            { model | error = Nothing }
 
                         Err error ->
                             { model | error = Just (toString error) }
             in
-                ( newModel, Cmd.none )
-
-        SetId id ->
-            ( { model | id = String.toInt id |> Result.toMaybe |> Maybe.withDefault 0 }, Cmd.none )
-
-        SetContents contents ->
-            ( { model | contents = contents }, Cmd.none )
+            ( newModel, Cmd.none )
 
 
 
@@ -113,24 +92,19 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ img [ src "/logo.svg" ] []
-        , h1 [] [ text "Your Elm App is working!" ]
-        , case model.error of
-            Nothing ->
-                text ""
-
-            Just error ->
-                div [] [ text "Error", text error ]
-        , label []
-            [ text "id"
-            , input [ onInput SetId ] []
+        [ table [ class "striped" ]
+            [ thead []
+                [ tr []
+                    [ th [] [ text "Имя файла" ]
+                    , th [] [ text "Описание" ]
+                    , th [] [ text "Строк" ]
+                    , th [] [ text "Процент перевода" ]
+                    ]
+                ]
+            , tbody []
+                (List.map (\file -> tr [] [ td [] [ text file.file ], td [] [ text file.description ], td [] [ text (toString file.lines) ], td [] [ text "empty" ] ]) model.content)
             ]
-        , label []
-            [ text "contents"
-            , textarea [ onInput SetContents, value model.contents ] []
-            ]
-        , button [ onClick <| MakePost ] [ text "Make new post!" ]
-        , button [ onClick <| GetPost ] [ text "Get post!" ]
+        , span [] [ text (toString model) ]
         ]
 
 
