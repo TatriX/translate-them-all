@@ -2,41 +2,85 @@ module Main exposing (..)
 
 import Html exposing (Html, button, div, span, table, tbody, td, text, th, thead, tr)
 import Html.Attributes exposing (class, src, value)
-import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode as Decode
-import Json.Encode as Encode
+import Json.Decode as Decode exposing (int, string, list, Decoder)
+import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 
 
 apiUrl : String
 apiUrl =
-    "http://alpha.rogalik.tatrix.org/translate-them-all/api/documents"
-
-
-decodePost : Decode.Decoder String
-decodePost =
-    Decode.at [ "content" ] Decode.string
+    "http://alpha.rogalik.tatrix.org/translate-them-all/api"
 
 
 getDocuments : Cmd Msg
 getDocuments =
     let
-        url =
-            apiUrl
-
         request =
-            Http.get url decodePost
+            Http.get (apiUrl ++ "/documents") decodeDocuments
     in
-    Http.send GetDocuments request
+        Http.send GetDocuments request
+
+
+decodeDocuments : Decoder (List Document)
+decodeDocuments =
+    list decodeDocument
+
+
+decodeDocument : Decoder Document
+decodeDocument =
+    decode Document
+        |> required "description" string
+        |> required "file" string
+        |> required "lines" int
+        |> required "translations" (list decodeTranslation)
+
+
+decodeTranslation : Decoder Translation
+decodeTranslation =
+    decode Translation
+        |> required "lang" decodeLang
+        |> required "approved" int
+        |> required "pending" int
+
+
+decodeLang : Decoder Lang
+decodeLang =
+    string
+        |> Decode.andThen
+            (\str ->
+                case str of
+                    "ru" ->
+                        Decode.succeed Ru
+
+                    "en" ->
+                        Decode.succeed En
+
+                    "ko" ->
+                        Decode.succeed Ko
+
+                    "de" ->
+                        Decode.succeed De
+
+                    lang ->
+                        Decode.fail <| "Unknown lang: " ++ lang
+            )
 
 
 
 ---- MODEL ----
 
 
+type Lang
+    = Ru
+    | En
+    | Ko
+    | De
+
+
 type alias Translation =
-    { x : Int
-    , y : Int
+    { lang : Lang
+    , approved : Int
+    , pendeing : Int
     }
 
 
@@ -66,7 +110,7 @@ init =
 
 
 type Msg
-    = GetDocuments (Result Http.Error String)
+    = GetDocuments (Result Http.Error (List Document))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -77,12 +121,12 @@ update msg model =
                 newModel =
                     case result of
                         Ok content ->
-                            { model | error = Nothing }
+                            { model | content = content, error = Nothing }
 
                         Err error ->
                             { model | error = Just (toString error) }
             in
-            ( newModel, Cmd.none )
+                ( newModel, Cmd.none )
 
 
 

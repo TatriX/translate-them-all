@@ -15,6 +15,61 @@ use rocket::State;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+
+#[get("/")]
+fn documents() -> Json<Value> {
+    Json(json!([
+            {
+                "description": "Main dictionary file",
+                "file": "dict.json",
+                "lines": 1234,
+                "translations": [
+                    {
+                        "lang": "en",
+                        "approved": 1000,
+                        "pending": 200
+                    },
+                    {
+                        "lang": "ko",
+                        "approved": 30,
+                        "pending": 12
+                    },
+                    {
+                        "lang": "de",
+                        "approved": 566,
+                        "pending": 432
+                    }
+                ]
+            },
+            {
+                "description": "Items descriptions",
+                "file": "items.json",
+                "lines": 314,
+                "translations": [
+                    {
+                        "lang": "en",
+                        "approved": 1001,
+                        "pending": 270
+                    },
+                    {
+                        "lang": "ko",
+                        "approved": 800,
+                        "pending": 292
+                    },
+                    {
+                        "lang": "de",
+                        "approved": 701,
+                        "pending": 133
+                    }
+                ]
+            }
+        ]
+    ))
+}
+
+
+//////
+
 // The type to represent the ID of a message.
 type ID = usize;
 
@@ -76,6 +131,7 @@ fn not_found() -> Json<Value> {
 
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
+        .mount("/documents", routes![documents])
         .mount("/message", routes![new, update, get])
         .catch(errors![not_found])
         .manage(Mutex::new(HashMap::<ID, String>::new()))
