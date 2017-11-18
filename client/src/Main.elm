@@ -1,10 +1,11 @@
 module Main exposing (..)
 
-import Html exposing (Html, button, div, span, table, tbody, td, text, th, thead, tr)
-import Html.Attributes exposing (class, src, value)
+import Array
+import Html exposing (Html, a, button, div, span, table, tbody, td, text, th, thead, tr)
+import Html.Attributes exposing (class, href, src, value)
 import Http
-import Json.Decode as Decode exposing (int, string, list, Decoder)
-import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
+import Json.Decode as Decode exposing (Decoder, int, list, string)
+import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
 
 
 apiUrl : String
@@ -18,7 +19,7 @@ getDocuments =
         request =
             Http.get (apiUrl ++ "/documents") decodeDocuments
     in
-        Http.send GetDocuments request
+    Http.send GetDocuments request
 
 
 decodeDocuments : Decoder (List Document)
@@ -80,7 +81,7 @@ type Lang
 type alias Translation =
     { lang : Lang
     , approved : Int
-    , pendeing : Int
+    , pending : Int
     }
 
 
@@ -126,7 +127,7 @@ update msg model =
                         Err error ->
                             { model | error = Just (toString error) }
             in
-                ( newModel, Cmd.none )
+            ( newModel, Cmd.none )
 
 
 
@@ -146,9 +147,38 @@ view model =
                     ]
                 ]
             , tbody []
-                (List.map (\file -> tr [] [ td [] [ text file.file ], td [] [ text file.description ], td [] [ text (toString file.lines) ], td [] [ text "empty" ] ]) model.content)
+                (List.map
+                    (\file ->
+                        tr []
+                            [ td [] [ text file.file ]
+                            , td [] [ text file.description ]
+                            , td [] [ text (toString file.lines) ]
+                            , td []
+                                (List.map
+                                    (\translation ->
+                                        a
+                                            [ href
+                                                (toString
+                                                    (case Array.get 0 (Array.fromList (String.split "." file.file)) of
+                                                        Nothing ->
+                                                            ""
+
+                                                        Just str ->
+                                                            str
+                                                    )
+                                                    ++ "/"
+                                                    ++ toString translation.lang
+                                                )
+                                            ]
+                                            [ text (toString translation.lang ++ ": " ++ toString (translation.approved * 100 // file.lines) ++ "%") ]
+                                    )
+                                    file.translations
+                                )
+                            ]
+                    )
+                    model.content
+                )
             ]
-        , span [] [ text (toString model) ]
         ]
 
 
