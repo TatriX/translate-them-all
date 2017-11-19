@@ -19,7 +19,7 @@ getDocuments =
         request =
             Http.get (apiUrl ++ "/documents") decodeDocuments
     in
-    Http.send GetDocuments request
+        Http.send GetDocuments request
 
 
 decodeDocuments : Decoder (List Document)
@@ -127,11 +127,39 @@ update msg model =
                         Err error ->
                             { model | error = Just (toString error) }
             in
-            ( newModel, Cmd.none )
+                ( newModel, Cmd.none )
 
 
 
 ---- VIEW ----
+
+
+fileToLangCode : String -> String
+fileToLangCode file =
+    Maybe.withDefault "??" <| List.head <| (String.split "." file)
+
+
+viewTranslationRow : Document -> Translation -> Html msg
+viewTranslationRow file translation =
+    a
+        [ href <|
+            (fileToLangCode file.file)
+                ++ "/"
+                ++ toString translation.lang
+        , class "waves-effect waves-light chip"
+        ]
+        [ text (toString translation.lang ++ ": " ++ toString (translation.approved * 100 // file.lines) ++ "%")
+        ]
+
+
+viewFileRow : Document -> Html msg
+viewFileRow file =
+    tr []
+        [ td [] [ text file.file ]
+        , td [] [ text file.description ]
+        , td [] [ text (toString file.lines) ]
+        , td [] <| List.map (viewTranslationRow file) file.translations
+        ]
 
 
 view : Model -> Html Msg
@@ -146,38 +174,7 @@ view model =
                     , th [] [ text "Процент перевода" ]
                     ]
                 ]
-            , tbody []
-                (List.map
-                    (\file ->
-                        tr []
-                            [ td [] [ text file.file ]
-                            , td [] [ text file.description ]
-                            , td [] [ text (toString file.lines) ]
-                            , td []
-                                (List.map
-                                    (\translation ->
-                                        a
-                                            [ href
-                                                (toString
-                                                    (case Array.get 0 (Array.fromList (String.split "." file.file)) of
-                                                        Nothing ->
-                                                            ""
-
-                                                        Just str ->
-                                                            str
-                                                    )
-                                                    ++ "/"
-                                                    ++ toString translation.lang
-                                                )
-                                            ]
-                                            [ text (toString translation.lang ++ ": " ++ toString (translation.approved * 100 // file.lines) ++ "%") ]
-                                    )
-                                    file.translations
-                                )
-                            ]
-                    )
-                    model.content
-                )
+            , tbody [] <| List.map viewFileRow model.content
             ]
         ]
 
